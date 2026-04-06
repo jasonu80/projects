@@ -1,29 +1,19 @@
 # Credit: https://github.com/LasCC/Network-Scanner/blob/master/main.py
 
 # DCF and PCF handshake, how it works will help.
-import ast
 from getmac import get_mac_address as gma
-import scapy.all as scapy
-import socket
-import time
-import netifaces
-from ipaddress import IPv4Network
 import nmap
 import json
+import time
 
 # Create the authorised devices that are inside the system.
-print("Welcome to Rogue Asset detector! Please choose one of the following options:")
-print("""
-1. Add Devices (a)
-2. Overwrite Devices (O)
- """)
-option = input(" ")
+print("Welcome to Rogue Asset detector.")
 askNet = input("Please enter your IP address with the subnet (Ex: 192.168.0.1/24): ")
 police = nmap.PortScanner()
 print(police.scan(askNet, arguments='-n -sn -PR --packet-trace'))
 
 currentDevices = {};
-def addDevices():
+def addDevices(): # Add and scan.
 	for i in police.all_hosts():
 		if police[i].state() == 'up':
 			if 'mac' in police[i]['addresses']:
@@ -46,6 +36,7 @@ def addDevices():
 			ask = input("Do you want to allow the network " + i + " to be authorised in the network? (y/n)")
 			if ask == "y":
 				currentDevices.update({MAC:{"IP":i, "Vendor":vendor, "Hostname":hostname}})
+
 def scan():
 	for i in police.all_hosts():
 		if police[i].state() == 'up':
@@ -65,18 +56,20 @@ def scan():
 			currentDevices.update({MAC:{"IP":i, "Vendor":vendor, "Hostname":hostname}})
 	return currentDevices
 
-if option == 'O':
-	addDevices()
-	with open("listOfCurrentDevices.txt", "w") as f:
-		f.write(str(currentDevices))
+def convertToJSON(file):
+	with open("devices.json", "w") as f:
+		json.dump(file, f, indent=4)
 
-elif option == 'a':
-	with open("listOfCurrentDevices.txt", "r") as f:
-		data = f.read()
-		RealData = ast.literal_eval(data)
+def optionN():
+	addDevices()
+	convertToJSON(currentDevices)
+
+def optionA():
+	with open("devices.json", "r") as f:
+		RealData = json.load(f)
 	scan()
 	for i,j in currentDevices.items():
-		if i not in data:
+		if i not in RealData:
 			print("Alert: New device detected!")
 			susVendor = j["Vendor"]
 			susIP = j["IP"]
@@ -85,59 +78,23 @@ elif option == 'a':
 			ask = input("Do you want to add " + i + " to your network? (y/n)")
 			if ask == 'y':
 				RealData.update({i:{"IP":susIP, "Vendor":susVendor, "Hostname":j["Hostname"]}})
-				p = str(RealData)
-				with open("listOfCurrentDevices.txt", "w") as f:
-					f.write(p)
+				convertToJSON(RealData)
 			else:
 				continue
+print("""
+	  Choose one of these options:
+1. Add & Detect new devices (A)
+2. Create New List Devices (N)
+ """)
+option = input(" ")
+if option == 'N':
+	optionN()
 
-# Detection will be added soon.
+elif option == 'A':
+	optionA()
 
+print("Please wait 5 minutes for the next scan.")
+while True:
+	time.sleep(300)
+	optionA()
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-#network = IPv4Network(askNet) # Enter your own Network and subnet here.
-#ip_list = []
-#packet_list = []
-#for i in network:
-#	ip_list.append(i.exploded)
-#def scan():
-#	for i in ip_list:
-#		request = scapy.ARP(pdst=i)
-#		broadcast = scapy.Ether("ff:ff:ff:ff:ff:ff")
-#		packet = broadcast/request
-#		arp_list = scapy.srp(packet, timeout=1, verbose=False)[0]
-#		print(f"{request}")
-#		print(f"{arp_list}")
-#		for j in arp_list:
-#	  		packet_dict = {"IP" : j[1].psrc, "MAC" : j[1].hwsrc}
-#	  		packet_list.append(packet_dict)
-#
-#scan() # runs the first ARP Scan
-#with open("listOfCurrentDevices.txt", "a") as f:
-#	f.write(packet_list)
-
-#time.sleep(300) # Check the network again after 5 minutes.
-
-#with open("listOfCurrentDevices.txt") as f:
-#	currentDevices = f.read();
-#packet_list = []
-#scan() # Perform the second ARP scan
